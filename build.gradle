@@ -1,0 +1,64 @@
+plugins {
+    id 'fabric-loom' version '1.10.1'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = "${project.archives_base_name}-fabric-${project.minecraft_version}"
+}
+
+repositories {
+    maven {
+        name = "Xander Maven"
+        url = "https://maven.isxander.dev/releases"
+    }
+    maven {
+        name = "TerraformersMC"
+        url = "https://maven.terraformersmc.com"
+    }
+    maven {
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    
+    // YACL - CurseMaven 方式（文件 ID 6662860）
+    modImplementation "curse.maven:yacl-667299:6662860"
+    include "curse.maven:yacl-667299:6662860"
+    
+    modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+    
+    modImplementation 'javazoom:jlayer:1.0.1'
+    include 'javazoom:jlayer:1.0.1'
+}
+
+processResources {
+    inputs.property "version", project.version
+    filteringCharset = "UTF-8"
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release.set(21)
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "gunfu-metro",
+  "version": "${version}",
+  "name": "Gunfu Metro Map",
+"description": "提供地铁地图，HUD显示和音乐播放。\n你正在使用测试版本1.0.0-beta.1(2026.07.13)，有部分功能未被修改或加入，且模组可能不稳定！",
+  "authors": ["Dinganzhi"],
+  "contact": {
+    "homepage": "https://gfmetro.of.cd",
+    "sources": "https://github.com/Dinganzhi/Gunfu-Metro-Mod",
+    "issues": "https://github.com/Dinganzhi/Gunfu-Metro-Mod/issues"
+  },
+  "icon": "assets/gunfu-metro/icon.png",
+  "license": "Apache-2.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["io.github.dinganzhi.gunfumetro.GunfuMetroMod"],
+    "modmenu": ["io.github.dinganzhi.gunfumetro.compat.ModMenuCompat"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.5",
+    "fabric-api": "*",
+    "minecraft": "~1.21.7",
+    "yet_another_config_lib_v3": ">=3.7.1"
+  },
+  "recommends": {
+    "modmenu": ">=15.0.0"
+  }
+}

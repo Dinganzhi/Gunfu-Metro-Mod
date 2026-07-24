@@ -1,0 +1,307 @@
+[
+  {
+    "id": "A001",
+    "name": {
+      "zh-Hans": "滚服站",
+      "zh-Hant": "滾服站",
+      "en": "Gunfu Railway Station"
+    },
+    "line": ["A1", "A4", "A6", "B1", "B3", "S1"],
+    "connections": [
+      { "to": "A013", "distance": 1494, "by": "A1" },
+      { "to": "A002", "distance": 100, "by": "B1" },
+      { "to": "A003", "distance": 324, "by": "A4" },
+      { "to": "A004", "distance": 117, "by": "B3" }
+    ],
+    "location": [
+      { "x": -32, "y": 83, "z": 176 },
+      { "x": 26, "y": 43, "z": 114 }
+    ]
+  },
+  {
+    "id": "A002",
+    "name": {
+      "zh-Hans": "刷铁机",
+      "zh-Hant": "刷鐵機",
+      "en": "Iron Golem Farming"
+    },
+    "line": ["B1", "B2"],
+    "connections": [
+      { "to": "A001", "distance": 100, "by": "B1" },
+      { "to": "A003", "distance": 134, "by": "B1" },
+      { "to": "A004", "distance": 87, "by": "B2" },
+      { "to": "A006", "distance": 160, "by": "B2" }
+    ],
+    "location": [
+      { "x": 84, "y": 41, "z": 111 },
+      { "x": 100, "y": 63, "z": 144 }
+    ]
+  },
+  {
+    "id": "A003",
+    "name": {
+      "zh-Hans": "合欢沟/金合欢小区",
+      "zh-Hant": "合歡溝/金合歡小區",
+      "en": "Hehuan'gou / Acacia Housing Estate"
+    },
+    "line": ["A4", "B1", "B3", "B4"],
+    "connections": [
+      { "to": "A001", "distance": 324, "by": "A4" },
+      { "to": "A002", "distance": 134, "by": "B1" },
+      { "to": "A004", "distance": 135, "by": "B3" },
+      { "to": "A005", "distance": 277, "by": "B3" }
+    ],
+    "location": [
+      { "x": 191, "y": 49, "z": 86 },
+      { "x": 164, "y": 73, "z": 51 }
+    ]
+  },
+  {
+    "id": "A004",
+    "name": {
+      "zh-Hans": "树林",
+      "zh-Hant": "樹林",
+      "en": "Forest"
+    },
+    "line": ["B2", "B3"],
+    "connections": [
+      { "to": "A001", "distance": 117, "by": "B3" },
+      { "to": "A003", "distance": 135, "by": "B3" },
+      { "to": "A002", "distance": 87, "by": "B2" }
+    ],
+    "location": [
+      { "x": 49, "y": 53, "z": 70 },
+      { "x": 82, "y": 62, "z": 44 }
+    ]
+  },
+  {
+    "id": "A005",
+    "name": {
+      "zh-Hans": "滚服金合欢乐魂站",
+      "zh-Hant": "滾服金合歡樂魂站",
+      "en": "Gunfu Acacia Happy Ghast Station"
+    },
+    "line": ["B3"],
+    "connections": [{ "to": "A003", "distance": 277, "by": "B3" }],
+    "location": [
+      { "x": 369, "y": 63, "z": 0 },
+      { "x": 362, "y": 76, "z": -17 }
+    ]
+  },
+  {
+    "id": "A006",
+    "name": {
+      "zh-Hans": "河畔东路/河畔前岸",
+      "zh-Hant": "河畔東路/河畔前岸",
+      "en": "East Riverbank Road / Riverbank Frontage"
+    },
+    "line": ["B2", "S1", "T1"],
+    "connections": [
+      { "to": "A002", "distance": 160, "by": "B2" },
+      { "to": "A007", "distance": 209, "by": "B2" }
+    ],
+    "location": [
+      { "x": 80, "y": 50, "z": 271 },
+      { "x": 63, "y": 39, "z": 249 }
+    ]
+  },
+  {
+    "id": "A007",
+    "name": {
+      "zh-Hans": "河畔南县",
+      "zh-Hant": "河畔南縣",
+      "en": "Riverbank South Town"
+    },
+    "line": ["B2", "B4"],
+    "connections": [{ "to": "A006", "distance": 209, "by": "B2" }],
+    "location": [
+      { "x": 187, "y": 42, "z": 353 },
+      { "x": 208, "y": 61, "z": 322 }
+    ]
+  },
+  {
+    "id": "A008",
+    "name": {
+      "zh-Hans": "铁院南",
+      "zh-Hant": "鐵院南",
+      "en": "South Tieyuan"
+    },
+    "line": ["B4"],
+    "connections": []
+  },
+  {
+    "id": "A009",
+    "name": {
+      "zh-Hans": "前屿",
+      "zh-Hant": "前嶼",
+      "en": "Qian Islet"
+    },
+    "line": ["B4", "S1"],
+    "connections": []
+  },
+  {
+    "id": "A010",
+    "name": {
+      "zh-Hans": "村民交易所",
+      "zh-Hant": "村民交易所",
+      "en": "Villager Trading Hall"
+    },
+    "line": ["S1"],
+    "connections": []
+  },
+  {
+    "id": "A011",
+    "name": {
+      "zh-Hans": "出生点",
+      "zh-Hant": "出生點",
+      "en": "Spawn Point"
+    },
+    "line": ["A1"],
+    "connections": [{ "to": "A012", "distance": 154, "by": "A1" }],
+    "location": [
+      { "x": 17, "y": 69, "z": 1 },
+      { "x": 26, "y": 91, "z": 7 }
+    ]
+  },
+  {
+    "id": "A012",
+    "name": {
+      "zh-Hans": "信标",
+      "zh-Hant": "信標",
+      "en": "Beacon"
+    },
+    "line": ["A1"],
+    "connections": [
+      { "to": "A013", "distance": 1435, "by": "A1" },
+      { "to": "A011", "distance": 154, "by": "A1" }
+    ],
+    "location": [
+      { "x": 24, "y": 71, "z": 149 },
+      { "x": 26, "y": 69, "z": 168 }
+    ]
+  },
+  {
+    "id": "A013",
+    "name": {
+      "zh-Hans": "恶魂塔",
+      "zh-Hant": "惡魂塔",
+      "en": "Ghast Farming"
+    },
+    "line": ["A1"],
+    "connections": [
+      { "to": "A012", "distance": 1435, "by": "A1" },
+      { "to": "A001", "distance": 1494, "by": "A1" },
+      { "to": "A014", "distance": 204, "by": "A1" }
+    ],
+    "location": [
+      { "x": 26, "y": 113, "z": 1583 },
+      { "x": 24, "y": 115, "z": 1599 }
+    ]
+  },
+  {
+    "id": "A014",
+    "name": {
+      "zh-Hans": "1Liad的城堡",
+      "zh-Hant": "1Liad的城堡",
+      "en": "1Liad's Castle"
+    },
+    "line": ["A1", "A3"],
+    "connections": [
+      { "to": "A013", "distance": 204, "by": "A1" },
+      { "to": "B005", "distance": 350, "by": "A3" }
+    ],
+    "location": [
+      { "x": 24, "y": 113, "z": 1810 },
+      { "x": 26, "y": 117, "z": 1794 }
+    ]
+  },
+  {
+    "id": "A015",
+    "name": {
+      "zh-Hans": "高尔夫球场",
+      "zh-Hant": "高爾夫球場",
+      "en": "Golf Course"
+    },
+    "line": ["T1"],
+    "connections": []
+  },
+  {
+    "id": "B001",
+    "name": {
+      "zh-Hans": "水磨沟",
+      "zh-Hant": "水磨溝",
+      "en": "Shuimogou"
+    },
+    "line": ["C1"],
+    "connections": [{ "to": "B002", "distance": 387, "by": "C1" }],
+    "location": [
+      { "x": 8, "y": 135, "z": 2573 },
+      { "x": -5, "y": 120, "z": 2554 }
+    ]
+  },
+  {
+    "id": "B002",
+    "name": {
+      "zh-Hans": "水磨沟北",
+      "zh-Hant": "水磨溝北",
+      "en": "North Shuimogou"
+    },
+    "line": ["A2", "A3", "C1"],
+    "connections": [
+      { "to": "B001", "distance": 387, "by": "C1" },
+      { "to": "B004", "distance": 726, "by": "A2" },
+      { "to": "B005", "distance": 774, "by": "A3" }
+    ],
+    "location": [
+      { "x": -6, "y": 68, "z": 2978 },
+      { "x": 9, "y": 61, "z": 2959 }
+    ]
+  },
+  {
+    "id": "B004",
+    "name": {
+      "zh-Hans": "末地传送门",
+      "zh-Hant": "末地傳送門",
+      "en": "End Portal"
+    },
+    "line": ["A2"],
+    "connections": [{ "to": "B002", "distance": 726, "by": "A2" }]
+  },
+  {
+    "id": "B005",
+    "name": {
+      "zh-Hans": "草甸站",
+      "zh-Hant": "草甸站",
+      "en": "Meadow Railway Station"
+    },
+    "line": ["A3", "A5"],
+    "connections": [
+      { "to": "B002", "distance": 774, "by": "A3" },
+      { "to": "A014", "distance": 350, "by": "A3" }
+    ],
+    "location": [
+      { "x": 180, "y": 111, "z": 1996 },
+      { "x": 222, "y": 132, "z": 1970 }
+    ]
+  },
+  {
+    "id": "B006",
+    "name": {
+      "zh-Hans": "掠夺者前哨站",
+      "zh-Hant": "掠奪者前哨站",
+      "en": "Pillager Outpost"
+    },
+    "line": ["A5"],
+    "connections": []
+  },
+  {
+    "id": "C001",
+    "name": {
+      "zh-Hans": "滚木站",
+      "zh-Hant": "滾木站",
+      "en": "Gunmu Railway Station"
+    },
+    "line": ["A6"],
+    "connections": []
+  }
+]

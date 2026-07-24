@@ -1,0 +1,18 @@
+{
+  "key.gunfu-metro.music_play": "播放/暂停",
+  "key.gunfu-metro.music_next": "下一首",
+  "key.gunfu-metro.music_prev": "上一首",
+  "category.gunfu-metro.music": "音乐控制",
+  "config.gunfu-metro.category.music": "音乐",
+  "config.gunfu-metro.option.musicSourceType": "音乐源类型",
+  "config.gunfu-metro.option.musicSourceType.desc": "选择从远程 URL 还是本地路径加载 XML 播放列表",
+  "config.gunfu-metro.option.musicRemoteUrl": "远程 XML URL",
+  "config.gunfu-metro.option.musicRemoteUrl.desc": "播放列表 XML 文件的远程地址",
+  "config.gunfu-metro.option.musicLocalPath": "本地 XML 路径",
+  "config.gunfu-metro.option.musicLocalPath.desc": "播放列表 XML 文件相对于游戏目录的路径",
+  "config.gunfu-metro.option.playMode": "播放模式",
+  "config.gunfu-metro.option.playMode.desc": "顺序播放、随机播放或单曲循环",
+  "config.gunfu-metro.group.loadPlaylist": "加载播放列表",
+  "config.gunfu-metro.option.loadPlaylist": "加载播放列表",
+  "config.gunfu-metro.option.loadPlaylist.desc": "重新加载 XML 文件中的音乐列表"
+}

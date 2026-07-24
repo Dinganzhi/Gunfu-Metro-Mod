@@ -1,0 +1,117 @@
+[
+  {
+    "code": "A1",
+    "name": {
+      "zh-Hans": "信标铁路",
+      "zh-Hant": "信標鐵路",
+      "en": "Beacon Railway"
+    },
+    "colour": "!rail"
+  },
+  {
+    "code": "A2",
+    "name": {
+      "zh-Hans": "末地铁路",
+      "zh-Hant": "末地鐵路",
+      "en": "End Railway"
+    },
+    "colour": "!rail"
+  },
+  {
+    "code": "A3",
+    "name": {
+      "zh-Hans": "草甸铁路",
+      "zh-Hant": "草甸鐵路",
+      "en": "Meadow Railway"
+    },
+    "colour": "!rail"
+  },
+  {
+    "code": "A4",
+    "name": {
+      "zh-Hans": "信标市域铁路",
+      "zh-Hant": "信標市域鐵路",
+      "en": "Beacon Suburban Railway"
+    },
+    "colour": "!subrail"
+  },
+  {
+    "code": "A5",
+    "name": {
+      "zh-Hans": "掠夺者铁路",
+      "zh-Hant": "掠奪者鐵路",
+      "en": "Pillager Railway"
+    },
+    "colour": "!rail"
+  },
+  {
+    "code": "A6",
+    "name": {
+      "zh-Hans": "服木城际",
+      "zh-Hant": "服木城際",
+      "en": "Gunfu-Gunmu Intercity Railway"
+    },
+    "colour": "!rail"
+  },
+  {
+    "code": "B1",
+    "name": {
+      "zh-Hans": "滚服地铁1号线",
+      "zh-Hant": "滾服地鐵1號線",
+      "en": "Gunfu Metro Line 1"
+    },
+    "colour": "#f00030"
+  },
+  {
+    "code": "B2",
+    "name": {
+      "zh-Hans": "滚服地铁2号线",
+      "zh-Hant": "滾服地鐵2號線",
+      "en": "Gunfu Metro Line 2"
+    },
+    "colour": "#90d800"
+  },
+  {
+    "code": "B3",
+    "name": {
+      "zh-Hans": "滚服地铁3号线",
+      "zh-Hant": "滾服地鐵3號線",
+      "en": "Gunfu Metro Line 3"
+    },
+    "colour": "#f0d800"
+  },
+  {
+    "code": "B4",
+    "name": {
+      "zh-Hans": "滚服地铁4号线",
+      "zh-Hant": "滾服地鐵4號線",
+      "en": "Gunfu Metro Line 4"
+    },
+    "colour": "#6030a8"
+  },
+  {
+    "code": "C1",
+    "name": {
+      "zh-Hans": "浮生地铁1号线",
+      "zh-Hant": "浮生地鐵1號線",
+      "en": "Fusheng Metro Line 1"
+    },
+    "colour": "#10069f"
+  },
+  {
+    "code": "S1",
+    "name": {
+      "zh-Hans": "滚服地铁村庄快线",
+      "zh-Hant": "滾服地鐵村莊快線",
+      "en": "Gunfu Metro Village Express"
+    }
+  },
+  {
+    "code": "T1",
+    "name": {
+      "zh-Hans": "河畔有轨1号线",
+      "zh-Hant": "河畔有軌1號線",
+      "en": "Hepan Tram Line 1"
+    }
+  }
+]

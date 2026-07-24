@@ -1,0 +1,9 @@
+{
+  "key.gunfu-metro.open": "Open Metro Map",
+  "key.gunfu-metro.toggle_hud": "Toggle HUD",
+  "category.gunfu-metro.main": "Gunfu Metro",
+  "gui.gunfu_metro.map": "Gunfu Metro Map",
+  "gui.gunfu_metro.export": "Export Image",
+  "gui.gunfu_metro.config": "Config",
+  "hud.gunfu_metro.nearest": "%s | %s"
+}
