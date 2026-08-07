@@ -16,8 +16,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GunfuMetroMod implements ClientModInitializer {
+    public static final Logger LOGGER = LoggerFactory.getLogger("Gunfu-Metro");
     public static KeyMapping OPEN_MAP_KEY;
     public static KeyMapping TOGGLE_HUD_KEY;
     public static KeyMapping MUSIC_PLAY_KEY;
@@ -28,6 +31,8 @@ public class GunfuMetroMod implements ClientModInitializer {
     private static boolean textureReady = false;
     private static MetroData.Station nearestStation;
     private static double nearestDistance;
+    private static boolean insideStation;
+    private static String nearestExitName;
     private static double lastPlayerX, lastPlayerY, lastPlayerZ;
 
     @Override
@@ -56,22 +61,20 @@ public class GunfuMetroMod implements ClientModInitializer {
         // 退出世界时停止音乐（多种方式确保）
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             MusicManager.getInstance().stop();
-            System.out.println("[GunfuMetro] Stopped music on disconnect");
+            LOGGER.info("Stopped music on disconnect");
         });
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             MusicManager.getInstance().stop();
-            System.out.println("[GunfuMetro] Stopped music on client stopping");
+            LOGGER.info("Stopped music on client stopping");
         });
 
-        // 额外检测：在 tick 中检查玩家是否为空
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // 玩家消失（如退出世界）时停止音乐
             if (client.player == null && MusicManager.getInstance().isPlaying()) {
                 MusicManager.getInstance().stop();
-                System.out.println("[GunfuMetro] Stopped music because player is null");
+                LOGGER.info("Stopped music because player is null");
             }
-        });
 
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (TOGGLE_HUD_KEY.consumeClick()) {
                 ModClientConfig config = ModClientConfig.INSTANCE.instance();
                 config.showHud = !config.showHud;
@@ -81,7 +84,8 @@ public class GunfuMetroMod implements ClientModInitializer {
                 Minecraft.getInstance().setScreen(new MetroMapScreen());
             }
             while (LOAD_PLAYLIST_KEY.consumeClick()) {
-                MusicManager.getInstance().loadPlaylist();
+                // 后台加载，避免网络/IO 阻塞渲染线程
+                MusicManager.getInstance().loadPlaylistAsync();
             }
             while (MUSIC_PLAY_KEY.consumeClick()) {
                 if (MusicManager.getInstance().isPlaying())
@@ -99,6 +103,9 @@ public class GunfuMetroMod implements ClientModInitializer {
             Minecraft client = Minecraft.getInstance();
             if (client.player == null)
                 return;
+            // F1 隐藏界面时同步隐藏模组 HUD
+            if (client.options.hideGui)
+                return;
 
             // ---------- 最近站点 HUD（左侧） ----------
             if (ModClientConfig.INSTANCE.instance().showHud) {
@@ -108,28 +115,35 @@ public class GunfuMetroMod implements ClientModInitializer {
                     lastPlayerX = px;
                     lastPlayerY = py;
                     lastPlayerZ = pz;
-                    nearestStation = null;
-                    double minDist = Double.MAX_VALUE;
-                    for (MetroData.Station s : MetroData.STATIONS) {
-                        if (s.minPos == null)
-                            continue;
-                        double dist = distanceToAABB(px, py, pz,
-                                s.minPos[0], s.minPos[1], s.minPos[2],
-                                s.maxPos[0], s.maxPos[1], s.maxPos[2]);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            nearestStation = s;
-                        }
-                    }
-                    nearestDistance = minDist;
+                    updateNearestStation(px, py, pz);
                 }
                 if (nearestStation != null) {
-                    Component nameText = Component.literal(nearestStation.nameZh);
-                    Component distText = Component.literal(String.format("%.1f m", nearestDistance));
                     int x = 10;
                     int y = graphics.guiHeight() / 2 - client.font.lineHeight;
-                    drawOutlinedText(graphics, client.font, nameText, x, y);
-                    drawOutlinedText(graphics, client.font, distText, x, y + client.font.lineHeight + 2);
+                    int lineHeight = client.font.lineHeight + 2;
+                    if (insideStation) {
+                        // 站内：在<站点名>内
+                        drawOutlinedText(graphics, client.font,
+                                Component.translatable("hud.gunfu_metro.inside_station",
+                                        MetroData.displayName(nearestStation)), x, y);
+                    } else {
+                        // 站外：站点名 / 出口名称 / 距离米
+                        String name = MetroData.displayName(nearestStation);
+                        drawOutlinedText(graphics, client.font, Component.literal(name), x, y);
+                        y += lineHeight;
+                        String exitName = (nearestExitName == null || nearestExitName.isEmpty())
+                                ? (nearestStation.exits.isEmpty() ? null
+                                        : Component.translatable("hud.gunfu_metro.exit").getString())
+                                : nearestExitName;
+                        if (exitName != null) {
+                            drawOutlinedText(graphics, client.font, Component.translatable(
+                                    "hud.gunfu_metro.exit_name", exitName), x, y);
+                            y += lineHeight;
+                        }
+                        String formatted = String.format("%.1f", nearestDistance);
+                        drawOutlinedText(graphics, client.font,
+                                Component.translatable("hud.gunfu_metro.distance", formatted), x, y);
+                    }
                 }
             }
 
@@ -190,18 +204,56 @@ public class GunfuMetroMod implements ClientModInitializer {
         graphics.drawString(font, text, drawX, y, 0xFFFFFFFF);
     }
 
-    private static String formatTime(long seconds) {
-        long min = seconds / 60;
-        long sec = seconds % 60;
-        return String.format("%d:%02d", min, sec);
-    }
+    /**
+     * 选择要显示的最近车站：
+     * 1) 玩家位于某车站站体内部时，直接显示该车站（在车站内）；
+     * 2) 否则按「到最近出入口的三维直线距离」（无出入口时以车站中心为参照）选择最近车站。
+     * 全程使用平方距离比较，仅在最后开一次根号。
+     */
+    private static void updateNearestStation(double px, double py, double pz) {
+        nearestStation = null;
+        insideStation = false;
+        nearestExitName = null;
+        nearestDistance = 0;
 
-    private static double distanceToAABB(double px, double py, double pz,
-            double minX, double minY, double minZ,
-            double maxX, double maxY, double maxZ) {
-        double dx = Math.max(0, Math.max(minX - px, px - maxX));
-        double dy = Math.max(0, Math.max(minY - py, py - maxY));
-        double dz = Math.max(0, Math.max(minZ - pz, pz - maxZ));
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        for (MetroData.Station s : MetroData.STATIONS) {
+            if (s.boxes.isEmpty())
+                continue;
+            if (MetroData.isInside(s, px, py, pz)) {
+                nearestStation = s;
+                insideStation = true;
+                return;
+            }
+        }
+
+        double minDistSq = Double.MAX_VALUE;
+        for (MetroData.Station s : MetroData.STATIONS) {
+            if (s.inclusiveBounds == null)
+                continue;
+            double distSq = Double.MAX_VALUE;
+            String bestExit = null;
+            if (!s.exits.isEmpty()) {
+                for (int i = 0; i < s.exits.size(); i++) {
+                    double[] e = s.exits.get(i);
+                    double dx = e[0] - px, dy = e[1] - py, dz = e[2] - pz;
+                    double d = dx * dx + dy * dy + dz * dz;
+                    if (d < distSq) {
+                        distSq = d;
+                        bestExit = s.exitNames.get(i);
+                    }
+                }
+            }
+            if (distSq == Double.MAX_VALUE && s.minPos != null) {
+                double dx = s.centerX - px, dy = s.centerY - py, dz = s.centerZ - pz;
+                distSq = dx * dx + dy * dy + dz * dz;
+            }
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
+                nearestStation = s;
+                nearestExitName = bestExit;
+            }
+        }
+        if (nearestStation != null)
+            nearestDistance = Math.sqrt(minDistSq);
     }
 }

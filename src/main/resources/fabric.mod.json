@@ -2,8 +2,9 @@
   "schemaVersion": 1,
   "id": "gunfu-metro",
   "version": "${version}",
+  "date": "${date}",
   "name": "Gunfu Metro Map",
-"description": "提供地铁地图，HUD显示和音乐播放。\n你正在使用测试版本1.0.0-beta.1(2026.07.13)，有部分功能未被修改或加入，且模组可能不稳定！",
+  "description": "提供地铁地图、HUD显示和音乐播放。\n【测试版警告】当前版本为 1.0.0-beta.2 测试版本，可能存在未预期的 Bug 或数据错误，仅供测试使用，请勿在生产环境依赖。",
   "authors": ["Dinganzhi"],
   "contact": {
     "homepage": "https://gfmetro.of.cd",

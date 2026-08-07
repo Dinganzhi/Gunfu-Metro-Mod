@@ -1,23 +1,45 @@
 package io.github.dinganzhi.gunfumetro.music;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import io.github.dinganzhi.gunfumetro.config.ModClientConfig;
-import javazoom.jl.decoder.*;
+import javazoom.jl.decoder.Bitstream;
+import javazoom.jl.decoder.Decoder;
+import javazoom.jl.decoder.Header;
+import javazoom.jl.decoder.SampleBuffer;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.openal.AL10;
-import org.w3c.dom.*;
-import javax.xml.parsers.*;
-import java.io.*;
-import java.net.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
 
 public class MusicManager {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MusicManager.class);
+    private static final int NETWORK_TIMEOUT_MS = 4000;
+
     private static MusicManager instance;
-    private final List<MusicData> playlist = new ArrayList<>();
+    private volatile List<MusicData> playlist = List.of();
+    private final Random random = new Random();
     private volatile int currentIndex = -1;
     private volatile boolean paused = false;
     private volatile boolean playing = false;
@@ -28,6 +50,9 @@ public class MusicManager {
     private final int[] buffers = new int[8];
     private boolean openalInit = false;
 
+    /** 最近一次播放/列表加载失败的原因（客户端线程读取，播放线程写入） */
+    private volatile String lastError = null;
+
     private int sampleRate = 44100;
     private int channels = 2;
     private volatile long currentFrameCount = 0;
@@ -36,14 +61,17 @@ public class MusicManager {
     private final Object playLock = new Object();
 
     public static MusicManager getInstance() {
-        if (instance == null) instance = new MusicManager();
+        if (instance == null)
+            instance = new MusicManager();
         return instance;
     }
 
-    private MusicManager() {}
+    private MusicManager() {
+    }
 
     private void initOpenAL() {
-        if (openalInit) return;
+        if (openalInit)
+            return;
         source = AL10.alGenSources();
         for (int i = 0; i < buffers.length; i++) {
             buffers[i] = AL10.alGenBuffers();
@@ -53,14 +81,15 @@ public class MusicManager {
         AL10.alSource3f(source, AL10.AL_POSITION, 0, 0, 0);
         // 从配置读取音量
         float volume = ModClientConfig.INSTANCE.instance().musicVolume;
-        AL10.alSourcef(source, AL10.AL_GAIN, Math.max(0.0f, Math.min(1.0f, volume)));
+        AL10.alSourcef(source, AL10.AL_GAIN, clampVolume(volume));
         AL10.alSourcei(source, AL10.AL_LOOPING, AL10.AL_FALSE);
         openalInit = true;
         checkALError("initOpenAL");
     }
 
     private void cleanupOpenAL() {
-        if (!openalInit) return;
+        if (!openalInit)
+            return;
         if (AL10.alIsSource(source)) {
             AL10.alSourceStop(source);
             int processed = AL10.alGetSourcei(source, AL10.AL_BUFFERS_PROCESSED);
@@ -72,7 +101,8 @@ public class MusicManager {
         }
         source = -1;
         for (int i = 0; i < buffers.length; i++) {
-            if (AL10.alIsBuffer(buffers[i])) AL10.alDeleteBuffers(buffers[i]);
+            if (AL10.alIsBuffer(buffers[i]))
+                AL10.alDeleteBuffers(buffers[i]);
             buffers[i] = -1;
         }
         openalInit = false;
@@ -81,13 +111,17 @@ public class MusicManager {
     private void checkALError(String operation) {
         int error = AL10.alGetError();
         if (error != AL10.AL_NO_ERROR) {
-            System.err.println("[OpenAL] Error after " + operation + ": " + error);
+            LOGGER.warn("OpenAL error after {}: {}", operation, error);
         }
+    }
+
+    private static float clampVolume(float volume) {
+        return Math.max(0.0f, Math.min(1.0f, volume));
     }
 
     // 音量控制方法
     public void setVolume(float volume) {
-        volume = Math.max(0.0f, Math.min(1.0f, volume));
+        volume = clampVolume(volume);
         if (openalInit && AL10.alIsSource(source)) {
             AL10.alSourcef(source, AL10.AL_GAIN, volume);
         }
@@ -100,7 +134,7 @@ public class MusicManager {
         if (openalInit && AL10.alIsSource(source)) {
             return AL10.alGetSourcef(source, AL10.AL_GAIN);
         }
-        return ModClientConfig.INSTANCE.instance().musicVolume;
+        return clampVolume(ModClientConfig.INSTANCE.instance().musicVolume);
     }
 
     private void playFile(String filePath) {
@@ -109,6 +143,7 @@ public class MusicManager {
             stopFlag = false;
             playing = true;
             paused = false;
+            lastError = null;
 
             playerThread = new Thread(() -> {
                 FileInputStream fis = null;
@@ -117,7 +152,8 @@ public class MusicManager {
                 try {
                     File audioFile = new File(filePath);
                     if (!audioFile.exists()) {
-                        System.err.println("[GunfuMetro] File not found: " + filePath);
+                        lastError = "File not found: " + filePath;
+                        LOGGER.error("File not found: {}", filePath);
                         return;
                     }
                     fis = new FileInputStream(audioFile);
@@ -134,7 +170,8 @@ public class MusicManager {
                     }
 
                     Header firstHeader = bitstream.readFrame();
-                    if (firstHeader == null) return;
+                    if (firstHeader == null)
+                        return;
                     sampleRate = firstHeader.frequency();
                     channels = (firstHeader.mode() == Header.SINGLE_CHANNEL) ? 1 : 2;
                     SampleBuffer firstOutput = (SampleBuffer) decoder.decodeFrame(firstHeader, bitstream);
@@ -151,7 +188,8 @@ public class MusicManager {
 
                     for (int i = 1; i < buffers.length; i++) {
                         Header header = bitstream.readFrame();
-                        if (header == null) break;
+                        if (header == null)
+                            break;
                         SampleBuffer samp = (SampleBuffer) decoder.decodeFrame(header, bitstream);
                         ByteBuffer pcm = toPCM(samp);
                         AL10.alBufferData(buffers[i], getALFormat(channels), pcm, sampleRate);
@@ -165,8 +203,10 @@ public class MusicManager {
                     while (playing && !stopFlag) {
                         if (paused) {
                             AL10.alSourcePause(source);
-                            while (paused && !stopFlag) Thread.sleep(100);
-                            if (!paused && !stopFlag) AL10.alSourcePlay(source);
+                            while (paused && !stopFlag)
+                                Thread.sleep(100);
+                            if (!paused && !stopFlag)
+                                AL10.alSourcePlay(source);
                             continue;
                         }
 
@@ -187,7 +227,8 @@ public class MusicManager {
                             bitstream.closeFrame();
                             processed--;
                         }
-                        if (normalEnd) break;
+                        if (normalEnd)
+                            break;
 
                         if (AL10.alGetSourcei(source, AL10.AL_BUFFERS_QUEUED) == 0 && !stopFlag && playing) {
                             Header header = bitstream.readFrame();
@@ -205,21 +246,37 @@ public class MusicManager {
                             bitstream.closeFrame();
                         }
 
-                        if (AL10.alGetSourcei(source, AL10.AL_SOURCE_STATE) != AL10.AL_PLAYING && !paused && !stopFlag) {
+                        if (AL10.alGetSourcei(source, AL10.AL_SOURCE_STATE) != AL10.AL_PLAYING && !paused
+                                && !stopFlag) {
                             AL10.alSourcePlay(source);
                         }
                         Thread.sleep(5);
                     }
+                } catch (InterruptedException e) {
+                    if (playing && !stopFlag)
+                        LOGGER.info("Player thread interrupted");
                 } catch (Exception e) {
-                    if (playing && !stopFlag) e.printStackTrace();
+                    lastError = e.getMessage() == null ? e.toString() : e.getMessage();
+                    if (playing && !stopFlag)
+                        LOGGER.error("Error while playing '{}'", filePath, e);
                 } finally {
-                    try { if (bitstream != null) bitstream.close(); } catch (Exception ignored) {}
-                    try { if (fis != null) fis.close(); } catch (Exception ignored) {}
+                    try {
+                        if (bitstream != null)
+                            bitstream.close();
+                    } catch (Exception ignored) {
+                    }
+                    try {
+                        if (fis != null)
+                            fis.close();
+                    } catch (Exception ignored) {
+                    }
                     synchronized (playLock) {
                         if (Thread.currentThread() == playerThread) {
                             cleanupOpenAL();
                             playing = false;
                             paused = false;
+                            if (lastError != null)
+                                LOGGER.info("Playback ended with error: {}", lastError);
                             if (normalEnd) {
                                 handleTrackEnd();
                             }
@@ -254,7 +311,10 @@ public class MusicManager {
         if (oldThread != null && oldThread.isAlive()) {
             oldThread.interrupt();
             if (waitForThread) {
-                try { oldThread.join(100); } catch (InterruptedException ignored) {}
+                try {
+                    oldThread.join(100);
+                } catch (InterruptedException ignored) {
+                }
             }
         }
     }
@@ -264,7 +324,10 @@ public class MusicManager {
             stopFlag = true;
             if (playerThread != null && playerThread.isAlive()) {
                 playerThread.interrupt();
-                try { playerThread.join(50); } catch (InterruptedException ignored) {}
+                try {
+                    playerThread.join(50);
+                } catch (InterruptedException ignored) {
+                }
             }
             playing = false;
             paused = false;
@@ -273,73 +336,123 @@ public class MusicManager {
         }
     }
 
+    /**
+     * 从配置指定的源（本地文件或远程 URL）读取播放列表。
+     * 远程请求设置了连接/读取超时，避免卡死游戏主线程，并限制为 http/https 协议。
+     */
     public void loadPlaylist() {
+        List<MusicData> loaded = readPlaylist();
         synchronized (playLock) {
             stop();
-            playlist.clear();
-            ModClientConfig config = ModClientConfig.INSTANCE.instance();
+            playlist = (loaded == null) ? List.of() : Collections.unmodifiableList(loaded);
+        }
+        LOGGER.info("Loaded {} tracks.", playlist.size());
+    }
+
+    /** 后台线程异步加载播放列表，避免阻塞渲染/输入线程 */
+    public void loadPlaylistAsync() {
+        Thread t = new Thread(() -> {
             try {
-                InputStream stream;
-                if (config.musicSourceType == ModClientConfig.MusicSourceType.REMOTE) {
-                    stream = new URL(config.musicRemoteUrl).openStream();
-                } else {
-                    Path localFile = Minecraft.getInstance().gameDirectory.toPath().resolve(config.musicLocalPath);
-                    if (!Files.exists(localFile)) {
-                        System.err.println("[GunfuMetro] Playlist file not found: " + localFile);
-                        return;
-                    }
-                    stream = Files.newInputStream(localFile);
-                }
-                Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(stream);
-                NodeList musicNodes = doc.getElementsByTagName("music");
-                for (int i = 0; i < musicNodes.getLength(); i++) {
-                    Element e = (Element) musicNodes.item(i);
-                    String id = getText(e, "id");
-                    String title = getText(e, "title");
-                    String author = getText(e, "author");
-                    int length = 0;
-                    try { length = Integer.parseInt(getText(e, "length")); } catch (NumberFormatException ignored) {}
-                    String path = getText(e, "path");
-                    playlist.add(new MusicData(id, title, author, length, path));
-                }
-                stream.close();
-                System.out.println("[GunfuMetro] Loaded " + playlist.size() + " tracks.");
+                loadPlaylist();
             } catch (Exception e) {
-                e.printStackTrace();
+                LOGGER.error("Failed to load playlist in background", e);
             }
+        }, "Gunfu-Playlist-Loader");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private List<MusicData> readPlaylist() {
+        ModClientConfig config = ModClientConfig.INSTANCE.instance();
+        try (InputStream stream = openPlaylistStream(config)) {
+            if (stream == null)
+                return null;
+            JsonArray entries = JsonParser.parseReader(
+                    new InputStreamReader(stream, StandardCharsets.UTF_8)).getAsJsonArray();
+            List<MusicData> result = new ArrayList<>(entries.size());
+            for (JsonElement element : entries) {
+                if (!element.isJsonObject())
+                    continue;
+                JsonObject o = element.getAsJsonObject();
+                result.add(new MusicData(
+                        stringOf(o, "id"),
+                        stringOf(o, "title"),
+                        stringOf(o, "author"),
+                        intOf(o, "length"),
+                        stringOf(o, "path")));
+            }
+            return result;
+        } catch (Exception e) {
+            LOGGER.error("Failed to read playlist", e);
+            return null;
         }
     }
 
-    private String getText(Element parent, String tag) {
-        NodeList list = parent.getElementsByTagName(tag);
-        return list.getLength() > 0 ? list.item(0).getTextContent().trim() : "";
+    private static String stringOf(JsonObject o, String key) {
+        JsonElement e = o.get(key);
+        return (e != null && !e.isJsonNull()) ? e.getAsString() : "";
+    }
+
+    private static int intOf(JsonObject o, String key) {
+        JsonElement e = o.get(key);
+        if (e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isNumber())
+            return e.getAsInt();
+        return 0;
+    }
+
+    private InputStream openPlaylistStream(ModClientConfig config) throws IOException {
+        if (config.musicSourceType == ModClientConfig.MusicSourceType.REMOTE) {
+            URL url = new URL(config.musicRemoteUrl);
+            String protocol = url.getProtocol().toLowerCase(Locale.ROOT);
+            if (!"http".equals(protocol) && !"https".equals(protocol)) {
+                LOGGER.error("Unsupported playlist URL protocol: '{}'", protocol);
+                return null;
+            }
+            URLConnection conn = url.openConnection();
+            conn.setConnectTimeout(NETWORK_TIMEOUT_MS);
+            conn.setReadTimeout(NETWORK_TIMEOUT_MS);
+            conn.setUseCaches(false);
+            return conn.getInputStream();
+        }
+        Path localFile = Minecraft.getInstance().gameDirectory.toPath().resolve(config.musicLocalPath);
+        if (!Files.exists(localFile)) {
+            LOGGER.error("Playlist file not found: {}", localFile);
+            return null;
+        }
+        return Files.newInputStream(localFile);
     }
 
     public void play() {
-        if (playlist.isEmpty()) {
+        List<MusicData> tracks = playlist;
+        if (tracks.isEmpty()) {
             loadPlaylist();
-            if (playlist.isEmpty()) return;
+            tracks = playlist;
+            if (tracks.isEmpty())
+                return;
         }
         if (paused) {
             paused = false;
             return;
         }
         int targetIndex = currentIndex;
-        if (targetIndex < 0) targetIndex = 0;
-        if (targetIndex >= playlist.size()) targetIndex = 0;
+        if (targetIndex < 0)
+            targetIndex = 0;
+        if (targetIndex >= tracks.size())
+            targetIndex = 0;
         synchronized (playLock) {
             stopPlayingOnly(true);
             currentIndex = targetIndex;
             playing = true;
             currentFrameCount = 0;
-            MusicData data = playlist.get(currentIndex);
+            MusicData data = tracks.get(currentIndex);
             playFile(resolvePath(data.path));
         }
     }
 
     public boolean gotoTrack(String id) {
-        for (int i = 0; i < playlist.size(); i++) {
-            if (playlist.get(i).id.equals(id)) {
+        List<MusicData> tracks = playlist;
+        for (int i = 0; i < tracks.size(); i++) {
+            if (tracks.get(i).id.equals(id)) {
                 playTrackAtIndex(i);
                 return true;
             }
@@ -348,60 +461,88 @@ public class MusicManager {
     }
 
     private void playTrackAtIndex(int index) {
-        if (index < 0 || index >= playlist.size()) return;
+        List<MusicData> tracks = playlist;
+        if (index < 0 || index >= tracks.size())
+            return;
         synchronized (playLock) {
             stopPlayingOnly(true);
             currentIndex = index;
             playing = true;
             currentFrameCount = 0;
-            MusicData data = playlist.get(index);
+            MusicData data = tracks.get(index);
             playFile(resolvePath(data.path));
         }
     }
 
     private String resolvePath(String rawPath) {
         ModClientConfig config = ModClientConfig.INSTANCE.instance();
-        if (config.musicSourceType == ModClientConfig.MusicSourceType.REMOTE) return rawPath;
+        if (config.musicSourceType == ModClientConfig.MusicSourceType.REMOTE)
+            return rawPath;
         return Minecraft.getInstance().gameDirectory.toPath().resolve(rawPath).toString();
     }
 
     public void playNext() {
-        if (playlist.isEmpty()) return;
+        List<MusicData> tracks = playlist;
+        if (tracks.isEmpty())
+            return;
         ModClientConfig config = ModClientConfig.INSTANCE.instance();
         switch (config.playMode) {
-            case SHUFFLE -> currentIndex = new Random().nextInt(playlist.size());
+            case SHUFFLE -> currentIndex = randomIndex();
             case SINGLE_LOOP -> { /* 保持当前索引 */ }
-            default -> currentIndex = (currentIndex + 1) % playlist.size();
+            default -> currentIndex = (currentIndex + 1) % tracks.size();
         }
         playTrackAtIndex(currentIndex);
     }
 
     public void playPrevious() {
-        if (playlist.isEmpty()) return;
+        List<MusicData> tracks = playlist;
+        if (tracks.isEmpty())
+            return;
         ModClientConfig config = ModClientConfig.INSTANCE.instance();
         switch (config.playMode) {
-            case SHUFFLE -> currentIndex = new Random().nextInt(playlist.size());
-            case SINGLE_LOOP -> {}
-            default -> currentIndex = (currentIndex - 1 + playlist.size()) % playlist.size();
+            case SHUFFLE -> currentIndex = randomIndex();
+            case SINGLE_LOOP -> {
+            }
+            default -> currentIndex = (currentIndex - 1 + tracks.size()) % tracks.size();
         }
         playTrackAtIndex(currentIndex);
     }
 
-    public void pause() {
-        if (playing && !paused) paused = true;
+    /** 随机选曲，尽量避免与当前曲目重复 */
+    private int randomIndex() {
+        int size = playlist.size();
+        if (size <= 1)
+            return 0;
+        int next;
+        do {
+            next = random.nextInt(size);
+        } while (next == currentIndex);
+        return next;
     }
 
-    public void seekForward(int seconds) { seekRelative(seconds); }
-    public void seekBackward(int seconds) { seekRelative(-seconds); }
+    public void pause() {
+        if (playing && !paused)
+            paused = true;
+    }
+
+    public void seekForward(int seconds) {
+        seekRelative(seconds);
+    }
+
+    public void seekBackward(int seconds) {
+        seekRelative(-seconds);
+    }
 
     private void seekRelative(int deltaSeconds) {
-        if (currentIndex < 0 || !playing) return;
+        if (currentIndex < 0 || !playing)
+            return;
         synchronized (playLock) {
-            long newFrame = currentFrameCount + (long)(deltaSeconds * sampleRate / SAMPLES_PER_FRAME);
-            if (newFrame < 0) newFrame = 0;
+            long newFrame = currentFrameCount + (long) (deltaSeconds * sampleRate / SAMPLES_PER_FRAME);
+            if (newFrame < 0)
+                newFrame = 0;
             MusicData data = getCurrentMusic();
             if (data != null && data.length > 0) {
-                long maxFrame = (long)(data.length * sampleRate / SAMPLES_PER_FRAME);
+                long maxFrame = (long) (data.length * sampleRate / SAMPLES_PER_FRAME);
                 if (deltaSeconds > 0 && newFrame >= maxFrame) {
                     playNext();
                     return;
@@ -409,7 +550,8 @@ public class MusicManager {
                     newFrame = 0;
                 }
             }
-            String currentFile = resolvePath(playlist.get(currentIndex).path);
+            List<MusicData> tracks = playlist;
+            String currentFile = resolvePath(tracks.get(currentIndex).path);
             stopPlayingOnly(true);
             currentFrameCount = newFrame;
             playing = true;
@@ -425,28 +567,40 @@ public class MusicManager {
                 play();
                 break;
             case LIST_LOOP:
-                currentIndex = (currentIndex + 1) % playlist.size();
+                List<MusicData> tracks = playlist;
+                if (!tracks.isEmpty())
+                    currentIndex = (currentIndex + 1) % tracks.size();
                 playTrackAtIndex(currentIndex);
                 break;
             case SHUFFLE:
-                // 随机模式播完暂停
-                pause();
-                break;
             case ORDER:
-                // 顺序模式播完暂停
-                pause();
+                // 随机 / 顺序模式播完暂停
+                LOGGER.info("Playback finished");
                 break;
         }
     }
 
-    public boolean isPlaying() { return playing && !paused; }
+    public boolean isPlaying() {
+        return playing && !paused;
+    }
+
+    public int getPlaylistSize() {
+        return playlist.size();
+    }
+
+    /** 最近一次播放失败的原因；无失败时为 null（只读，供命令反馈使用） */
+    public String getLastError() {
+        return lastError;
+    }
 
     public MusicData getCurrentMusic() {
-        return (currentIndex >= 0 && currentIndex < playlist.size()) ? playlist.get(currentIndex) : null;
+        List<MusicData> tracks = playlist;
+        return (currentIndex >= 0 && currentIndex < tracks.size()) ? tracks.get(currentIndex) : null;
     }
 
     public long getCurrentPosition() {
-        if (sampleRate > 0) return (long) (currentFrameCount * SAMPLES_PER_FRAME / sampleRate);
+        if (sampleRate > 0)
+            return Math.max(0, currentFrameCount * SAMPLES_PER_FRAME / sampleRate);
         return 0;
     }
 

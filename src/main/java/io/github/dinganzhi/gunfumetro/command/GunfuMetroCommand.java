@@ -2,23 +2,25 @@ package io.github.dinganzhi.gunfumetro.command;
 
 import io.github.dinganzhi.gunfumetro.MetroData;
 import io.github.dinganzhi.gunfumetro.MetroMapTexture;
+import io.github.dinganzhi.gunfumetro.config.GunfuMetroConfigScreen;
 import io.github.dinganzhi.gunfumetro.config.ModClientConfig;
 import io.github.dinganzhi.gunfumetro.music.MusicManager;
 import io.github.dinganzhi.gunfumetro.screen.MetroMapScreen;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import dev.isxander.yacl3.api.*;
-import dev.isxander.yacl3.api.controller.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal;
 
 public class GunfuMetroCommand {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GunfuMetroCommand.class);
     public static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(literal("gunfumetro")
@@ -28,11 +30,11 @@ public class GunfuMetroCommand {
                                 try {
                                     ModClientConfig.INSTANCE.instance().showHud = true;
                                     ModClientConfig.INSTANCE.save();
-                                    sendFeedback("HUD 已开启");
+                                    sendFeedback("command.gunfu-metro.hud_on");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("HUD 开启失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.hud_on_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
@@ -40,22 +42,22 @@ public class GunfuMetroCommand {
                                 try {
                                     ModClientConfig.INSTANCE.instance().showHud = false;
                                     ModClientConfig.INSTANCE.save();
-                                    sendFeedback("HUD 已关闭");
+                                    sendFeedback("command.gunfu-metro.hud_off");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("HUD 关闭失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.hud_off_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
                             .then(literal("reload").executes(ctx -> {
                                 try {
-                                    MetroData.loadAll();
-                                    sendFeedback("线路数据已重新加载");
+                                    MetroData.reload();
+                                    sendFeedback("command.gunfu-metro.hud_reload_done");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("重新加载数据失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.reload_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
@@ -64,45 +66,51 @@ public class GunfuMetroCommand {
                     .then(literal("music")
                             .then(literal("play").executes(ctx -> {
                                 try {
+                                    if (MusicManager.getInstance().getPlaylistSize() == 0)
+                                        MusicManager.getInstance().loadPlaylist();
+                                    if (MusicManager.getInstance().getPlaylistSize() == 0) {
+                                        sendError("command.gunfu-metro.music_play_empty");
+                                        return 1;
+                                    }
                                     MusicManager.getInstance().play();
-                                    sendFeedback("开始播放");
+                                    sendFeedback("command.gunfu-metro.music_play");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("播放失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_play_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
                             .then(literal("pause").executes(ctx -> {
                                 try {
                                     MusicManager.getInstance().pause();
-                                    sendFeedback("已暂停");
+                                    sendFeedback("command.gunfu-metro.music_pause");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("暂停失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_pause_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
                             .then(literal("next").executes(ctx -> {
                                 try {
                                     MusicManager.getInstance().playNext();
-                                    sendFeedback("下一首");
+                                    sendFeedback("command.gunfu-metro.music_next");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("下一首失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_next_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
                             .then(literal("previous").executes(ctx -> {
                                 try {
                                     MusicManager.getInstance().playPrevious();
-                                    sendFeedback("上一首");
+                                    sendFeedback("command.gunfu-metro.music_previous");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("上一首失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_previous_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
@@ -110,11 +118,11 @@ public class GunfuMetroCommand {
                                 try {
                                     int sec = IntegerArgumentType.getInteger(ctx, "seconds");
                                     MusicManager.getInstance().seekForward(sec);
-                                    sendFeedback("快进 " + sec + " 秒");
+                                    sendFeedback("command.gunfu-metro.music_forward", sec);
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("快进失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_forward_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             })))
@@ -122,11 +130,11 @@ public class GunfuMetroCommand {
                                 try {
                                     int sec = IntegerArgumentType.getInteger(ctx, "seconds");
                                     MusicManager.getInstance().seekBackward(sec);
-                                    sendFeedback("后退 " + sec + " 秒");
+                                    sendFeedback("command.gunfu-metro.music_backward", sec);
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("后退失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_backward_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             })))
@@ -135,14 +143,14 @@ public class GunfuMetroCommand {
                                     String id = StringArgumentType.getString(ctx, "id");
                                     boolean found = MusicManager.getInstance().gotoTrack(id);
                                     if (found) {
-                                        sendFeedback("跳转到歌曲 " + id);
+                                        sendFeedback("command.gunfu-metro.music_goto_found", id);
                                     } else {
-                                        sendError("ID未找到: " + id);
+                                        sendError("command.gunfu-metro.music_goto_not_found", id);
                                     }
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("跳转失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_goto_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             })))
@@ -157,14 +165,14 @@ public class GunfuMetroCommand {
                                     ModClientConfig.PlayMode mode = ModClientConfig.PlayMode.valueOf(modeStr);
                                     ModClientConfig.INSTANCE.instance().playMode = mode;
                                     ModClientConfig.INSTANCE.save();
-                                    sendFeedback("播放模式已切换为: " + mode.name());
+                                    sendFeedback("command.gunfu-metro.music_mode_set", mode.name());
                                     return 1;
                                 } catch (IllegalArgumentException e) {
-                                    sendError("无效的模式，可用: single_loop, list_loop, shuffle, order");
+                                    sendError("command.gunfu-metro.music_mode_invalid", "single_loop, list_loop, shuffle, order");
                                     return 0;
                                 } catch (Exception e) {
-                                    sendError("切换模式失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_mode_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             })))
@@ -173,11 +181,11 @@ public class GunfuMetroCommand {
                                         try {
                                             ModClientConfig.INSTANCE.instance().showMusicHud = true;
                                             ModClientConfig.INSTANCE.save();
-                                            sendFeedback("音乐 HUD 已开启");
+                                            sendFeedback("command.gunfu-metro.music_hud_on");
                                             return 1;
                                         } catch (Exception e) {
-                                            sendError("开启失败: " + e.getMessage());
-                                            e.printStackTrace();
+                                            sendError("command.gunfu-metro.music_hud_on_fail", e.getMessage());
+                                            LOGGER.error("Command failed", e);
                                             return 0;
                                         }
                                     }))
@@ -185,11 +193,11 @@ public class GunfuMetroCommand {
                                         try {
                                             ModClientConfig.INSTANCE.instance().showMusicHud = false;
                                             ModClientConfig.INSTANCE.save();
-                                            sendFeedback("音乐 HUD 已关闭");
+                                            sendFeedback("command.gunfu-metro.music_hud_off");
                                             return 1;
                                         } catch (Exception e) {
-                                            sendError("关闭失败: " + e.getMessage());
-                                            e.printStackTrace();
+                                            sendError("command.gunfu-metro.music_hud_off_fail", e.getMessage());
+                                            LOGGER.error("Command failed", e);
                                             return 0;
                                         }
                                     }))
@@ -197,11 +205,11 @@ public class GunfuMetroCommand {
                             .then(literal("reload").executes(ctx -> {
                                 try {
                                     MusicManager.getInstance().loadPlaylist();
-                                    sendFeedback("歌单已重新加载");
+                                    sendFeedback("command.gunfu-metro.music_reload_done");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("歌单加载失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_reload_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
@@ -211,11 +219,11 @@ public class GunfuMetroCommand {
                                     int val = IntegerArgumentType.getInteger(ctx, "value");
                                     float volume = val / 100.0f;
                                     MusicManager.getInstance().setVolume(volume);
-                                    sendFeedback("音量已设置为 " + val + "%");
+                                    sendFeedback("command.gunfu-metro.music_volume_set", val);
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("设置音量失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.music_volume_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             })))
@@ -224,72 +232,55 @@ public class GunfuMetroCommand {
                     .then(literal("config")
                             .then(literal("gui").executes(ctx -> {
                                 try {
-                                    Minecraft.getInstance().execute(() -> {
-                                        try {
-                                            Screen parent = Minecraft.getInstance().screen;
-                                            System.out.println("[GunfuMetro] Config gui: parent screen = " + parent);
-                                            Screen configScreen = createConfigScreen(parent);
-                                            if (configScreen != null) {
-                                                Minecraft.getInstance().setScreen(configScreen);
-                                                System.out.println("[GunfuMetro] Config screen set: " + configScreen);
-                                                // 延迟检查并重设
-                                                new Thread(() -> {
-                                                    try { Thread.sleep(200); } catch (InterruptedException ignored) {}
-                                                    if (Minecraft.getInstance().screen != configScreen) {
-                                                        Minecraft.getInstance().execute(() -> {
-                                                            Minecraft.getInstance().setScreen(configScreen);
-                                                            System.out.println("[GunfuMetro] Config screen re-set");
-                                                        });
-                                                    }
-                                                }).start();
-                                                sendFeedback("配置界面已打开");
-                                            } else {
-                                                sendError("配置屏幕生成失败（返回 null）");
-                                            }
-                                        } catch (Exception e) {
-                                            sendError("打开配置界面异常: " + e.getMessage());
-                                            e.printStackTrace();
-                                        }
-                                    });
+                    Minecraft.getInstance().execute(() -> {
+                        try {
+                            Screen parent = Minecraft.getInstance().screen;
+                            Screen configScreen = GunfuMetroConfigScreen.create(parent);
+                            if (configScreen != null) {
+                                Minecraft.getInstance().setScreen(configScreen);
+                                reopenScreen(configScreen);
+                                sendFeedback("command.gunfu-metro.config_gui_opened");
+                            } else {
+                                sendError("command.gunfu-metro.config_gui_null");
+                            }
+                        } catch (Exception e) {
+                            sendError("command.gunfu-metro.config_gui_fail", e.getMessage());
+                            LOGGER.error("Failed to open config screen", e);
+                        }
+                    });
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("命令执行异常: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.command_exception", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
                             .then(literal("reload").executes(ctx -> {
                                 try {
-                                    ModClientConfig.INSTANCE.load();
-                                    // 应用音量
-                                    MusicManager.getInstance().setVolume(ModClientConfig.INSTANCE.instance().musicVolume);
-                                    sendFeedback("配置已重新加载。请重新打开配置界面查看变化。");
+                                    ModClientConfig cfg = ModClientConfig.INSTANCE.instance();
+                                    if (cfg.reloadFromDisk()) {
+                                        MusicManager.getInstance().setVolume(cfg.musicVolume);
+                                        sendFeedback("command.gunfu-metro.config_reload_done");
+                                    } else {
+                                        sendFeedback("command.gunfu-metro.config_reload_missing");
+                                    }
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("重新加载配置失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.config_reload_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
                             .then(literal("reset").executes(ctx -> {
                                 try {
                                     ModClientConfig cfg = ModClientConfig.INSTANCE.instance();
-                                    cfg.showHud = true;
-                                    cfg.showTitleBar = true;
-                                    cfg.uiScale = 1.0f;
-                                    cfg.musicSourceType = ModClientConfig.MusicSourceType.LOCAL;
-                                    cfg.musicLocalPath = "gunfu-metro/musics.xml";
-                                    cfg.playMode = ModClientConfig.PlayMode.ORDER;
-                                    cfg.showMusicHud = true;
-                                    cfg.musicVolume = 0.5f;
-                                    ModClientConfig.INSTANCE.save();
-                                    // 应用音量
+                                    cfg.resetToDefaults();
                                     MusicManager.getInstance().setVolume(cfg.musicVolume);
-                                    sendFeedback("配置已重置为默认值。请重新打开配置界面查看变化。");
+                                    sendFeedback("command.gunfu-metro.config_reset_done");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("重置配置失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.config_reset_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
@@ -299,23 +290,23 @@ public class GunfuMetroCommand {
                             .then(literal("regenerate").executes(ctx -> {
                                 try {
                                     MetroMapTexture.regenerate();
-                                    sendFeedback("地图纹理已重新生成");
+                                    sendFeedback("command.gunfu-metro.map_regenerate_done");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("重新生成纹理失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.map_regenerate_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
                             .then(literal("reload").executes(ctx -> {
                                 try {
-                                    MetroData.loadAll();
+                                    MetroData.reload();
                                     MetroMapTexture.regenerate();
-                                    sendFeedback("地图数据及纹理已重新加载");
+                                    sendFeedback("command.gunfu-metro.map_reload_done");
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("重新加载失败: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.map_reload_fail", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
@@ -325,26 +316,17 @@ public class GunfuMetroCommand {
                                         try {
                                             MetroMapScreen mapScreen = new MetroMapScreen();
                                             Minecraft.getInstance().setScreen(mapScreen);
-                                            System.out.println("[GunfuMetro] Map screen set: " + mapScreen);
-                                            new Thread(() -> {
-                                                try { Thread.sleep(200); } catch (InterruptedException ignored) {}
-                                                if (Minecraft.getInstance().screen != mapScreen) {
-                                                    Minecraft.getInstance().execute(() -> {
-                                                        Minecraft.getInstance().setScreen(mapScreen);
-                                                        System.out.println("[GunfuMetro] Map screen re-set");
-                                                    });
-                                                }
-                                            }).start();
-                                            sendFeedback("地图界面已打开");
+                                            reopenScreen(mapScreen);
+                                            sendFeedback("command.gunfu-metro.map_gui_opened");
                                         } catch (Exception e) {
-                                            sendError("打开地图界面异常: " + e.getMessage());
-                                            e.printStackTrace();
+                                            sendError("command.gunfu-metro.map_gui_fail", e.getMessage());
+                                            LOGGER.error("Failed to open map screen", e);
                                         }
                                     });
                                     return 1;
                                 } catch (Exception e) {
-                                    sendError("命令执行异常: " + e.getMessage());
-                                    e.printStackTrace();
+                                    sendError("command.gunfu-metro.command_exception", e.getMessage());
+                                    LOGGER.error("Command failed", e);
                                     return 0;
                                 }
                             }))
@@ -353,106 +335,39 @@ public class GunfuMetroCommand {
         });
     }
 
-    private static void sendFeedback(String msg) {
+    private static void sendFeedback(String key, Object... args) {
         if (Minecraft.getInstance().player != null) {
-            Minecraft.getInstance().player.displayClientMessage(Component.literal("[Gunfu Metro] " + msg), false);
+            Minecraft.getInstance().player.displayClientMessage(
+                    Component.literal("[Gunfu Metro] ")
+                            .append(Component.translatable(key, args)),
+                    false);
         }
     }
 
-    private static void sendError(String msg) {
+    private static void sendError(String key, Object... args) {
         if (Minecraft.getInstance().player != null) {
-            Minecraft.getInstance().player.displayClientMessage(Component.literal("[Gunfu Metro] §c" + msg), false);
+            Minecraft.getInstance().player.displayClientMessage(
+                    Component.literal("[Gunfu Metro] ")
+                            .append(Component.translatable(key, args).withStyle(ChatFormatting.RED)),
+                    false);
         }
     }
 
-    public static Screen createConfigScreen(Screen parent) {
-        try {
-            return YetAnotherConfigLib.create(ModClientConfig.INSTANCE, (defaults, config, builder) -> builder
-                    .title(Component.translatable("config.gunfu-metro.title"))
-                    .category(ConfigCategory.createBuilder()
-                            .name(Component.translatable("config.gunfu-metro.category.general"))
-                            .option(Option.<Boolean>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.showHud"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.showHud.desc")))
-                                    .binding(defaults.showHud, () -> config.showHud, val -> config.showHud = val)
-                                    .controller(opt -> BooleanControllerBuilder.create(opt).coloured(true))
-                                    .build())
-                            .option(Option.<Boolean>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.showTitleBar"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.showTitleBar.desc")))
-                                    .binding(defaults.showTitleBar, () -> config.showTitleBar, val -> config.showTitleBar = val)
-                                    .controller(opt -> BooleanControllerBuilder.create(opt).coloured(true))
-                                    .build())
-                            .option(Option.<Boolean>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.showMusicHud"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.showMusicHud.desc")))
-                                    .binding(defaults.showMusicHud, () -> config.showMusicHud, val -> config.showMusicHud = val)
-                                    .controller(opt -> BooleanControllerBuilder.create(opt).coloured(true))
-                                    .build())
-                            .option(Option.<Float>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.uiScale"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.uiScale.desc")))
-                                    .binding(defaults.uiScale, () -> config.uiScale, val -> config.uiScale = val)
-                                    .controller(opt -> FloatSliderControllerBuilder.create(opt).range(0.5f, 2.0f).step(0.1f)
-                                            .valueFormatter(val -> Component.literal(String.format("%.1f", val))))
-                                    .build())
-                            .build())
-                    .category(ConfigCategory.createBuilder()
-                            .name(Component.translatable("config.gunfu-metro.category.music"))
-                            .option(Option.<ModClientConfig.MusicSourceType>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.musicSourceType"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.musicSourceType.desc")))
-                                    .binding(defaults.musicSourceType, () -> config.musicSourceType, val -> config.musicSourceType = val)
-                                    .controller(opt -> EnumControllerBuilder.create(opt)
-                                            .enumClass(ModClientConfig.MusicSourceType.class)
-                                            .valueFormatter(type -> Component.literal(type.name())))
-                                    .build())
-                            .option(Option.<String>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.musicRemoteUrl"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.musicRemoteUrl.desc")))
-                                    .binding(defaults.musicRemoteUrl, () -> config.musicRemoteUrl, val -> config.musicRemoteUrl = val)
-                                    .controller(StringControllerBuilder::create)
-                                    .build())
-                            .option(Option.<String>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.musicLocalPath"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.musicLocalPath.desc")))
-                                    .binding(defaults.musicLocalPath, () -> config.musicLocalPath, val -> config.musicLocalPath = val)
-                                    .controller(StringControllerBuilder::create)
-                                    .build())
-                            .option(Option.<ModClientConfig.PlayMode>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.playMode"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.playMode.desc")))
-                                    .binding(defaults.playMode, () -> config.playMode, val -> config.playMode = val)
-                                    .controller(opt -> EnumControllerBuilder.create(opt)
-                                            .enumClass(ModClientConfig.PlayMode.class)
-                                            .valueFormatter(mode -> switch (mode) {
-                                                case SINGLE_LOOP -> Component.literal("单曲循环");
-                                                case LIST_LOOP -> Component.literal("列表循环");
-                                                case SHUFFLE -> Component.literal("随机播放");
-                                                case ORDER -> Component.literal("顺序播放");
-                                            }))
-                                    .build())
-                            // 音量滑块
-                            .option(Option.<Float>createBuilder()
-                                    .name(Component.translatable("config.gunfu-metro.option.musicVolume"))
-                                    .description(OptionDescription.of(Component.translatable("config.gunfu-metro.option.musicVolume.desc")))
-                                    .binding(defaults.musicVolume, () -> config.musicVolume, val -> config.musicVolume = val)
-                                    .controller(opt -> FloatSliderControllerBuilder.create(opt)
-                                            .range(0.0f, 1.0f).step(0.01f)
-                                            .valueFormatter(val -> Component.literal((int)(val * 100) + "%")))
-                                    .build())
-                            .build())
-                    .save(() -> ModClientConfig.INSTANCE.save())
-            ).generateScreen(parent);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new Screen(Component.literal("配置屏幕生成失败")) {
-                @Override
-                public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-                    renderBackground(graphics, mouseX, mouseY, delta);
-                    graphics.drawCenteredString(font, Component.literal("配置屏幕生成失败，请查看日志"), width/2, height/2, 0xFF0000);
+    /**
+     * 部分情况下（从聊天栏执行客户端命令时）界面会被命令调度器再次关闭，
+     * 这里在延迟后检查，若界面已被关闭则重新打开，保证命令能稳定打开界面。
+     */
+    private static void reopenScreen(Screen target) {
+        new Thread(() -> {
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException ignored) {
+            }
+            Minecraft.getInstance().execute(() -> {
+                if (Minecraft.getInstance().screen != target) {
+                    Minecraft.getInstance().setScreen(target);
                 }
-            };
-        }
+            });
+        }, "Gunfu-Reopen-Screen").start();
     }
 }
